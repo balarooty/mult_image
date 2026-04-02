@@ -23,35 +23,30 @@ app.registerExtension({
                 const container = document.createElement("div");
                 container.style.cssText = `
                     width: 100%;
-                    background: #222222;
-                    border: 1px solid #353545;
-                    border-radius: 4px;
-                    margin-top: 5px;
-                    padding: 10px;
+                    padding: 5px;
                     box-sizing: border-box;
                     display: flex;
                     flex-direction: column;
-                    gap: 10px;
+                    gap: 12px;
                     pointer-events: auto;
-                    overflow: hidden;
                 `;
 
                 // Top Bar with Buttons
                 const topBar = document.createElement("div");
-                topBar.style.cssText = "display: flex; justify-content: flex-start; align-items: center; width: 100%; gap: 8px;";
+                topBar.style.cssText = "display: flex; justify-content: space-around; align-items: center; width: 100%; gap: 10px; padding-top: 5px;";
 
                 const uploadBtn = document.createElement("button");
                 uploadBtn.innerText = "Upload Images";
                 uploadBtn.style.cssText = `
-                    background: #3a3f4b; color: white; border: 1px solid #5a5f6b;
-                    padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;
+                    flex: 1; background: #333; color: #ddd; border: 1px solid #555;
+                    padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;
                 `;
 
                 const removeAllBtn = document.createElement("button");
                 removeAllBtn.innerText = "Clear All";
                 removeAllBtn.style.cssText = `
-                    background: #cc2222; color: white; border: 1px solid #aa1111;
-                    padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;
+                    flex: 1; background: #532; color: #fcc; border: 1px solid #744;
+                    padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;
                 `;
                 removeAllBtn.onclick = () => {
                     if (filesWidget) { filesWidget.value = ""; }
@@ -109,12 +104,13 @@ app.registerExtension({
 
                 // Add DOM widget
                 const galleryWidget = this.addDOMWidget("Gallery", "html_gallery", container, { serialize: false });
-                galleryWidget.computeSize = () => [0, 0];
+                galleryWidget.computeSize = function(width) {
+                    return [width, container.offsetHeight + 15];
+                };
                 
                 // Track layout changes
                 const resizeObserver = new ResizeObserver(() => {
-                    const minNodeHeight = (this.computeSize? this.computeSize()[1] : 100) + container.offsetHeight + 15;
-                    this.size[1] = Math.max(this.size[1], minNodeHeight);
+                    app.graph.setDirtyCanvas(true, true);
                 });
                 resizeObserver.observe(container);
 
