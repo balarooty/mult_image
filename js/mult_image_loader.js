@@ -11,126 +11,206 @@ app.registerExtension({
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
                 
-                // Keep track of loaded images for drawing on canvas
-                this.imgs = [];
-
-                // Hide the raw string input
+                // Hide the raw string input completely
                 const filesWidget = this.widgets.find(w => w.name === "uploaded_images");
                 if (filesWidget) {
                     filesWidget.type = "hidden";
-                    filesWidget.computeSize = () => [0,-4]; // Hide it gracefully
+                    if (filesWidget.element) filesWidget.element.style.display = "none";
+                    filesWidget.computeSize = () => [0,0];
                 }
+
+                // Create HTML Container for DOM Widget
+                const container = document.createElement("div");
+                container.style.cssText = `
+                    width: 100%;
+                    background: #222222;
+                    border: 1px solid #353545;
+                    border-radius: 4px;
+                    margin-top: 5px;
+                    padding: 10px;
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    pointer-events: auto;
+                    overflow: hidden;
+                `;
+
+                // Top Bar with Buttons
+                const topBar = document.createElement("div");
+                topBar.style.cssText = "display: flex; justify-content: flex-start; align-items: center; width: 100%; gap: 8px;";
+
+                const uploadBtn = document.createElement("button");
+                uploadBtn.innerText = "Upload Images";
+                uploadBtn.style.cssText = `
+                    background: #3a3f4b; color: white; border: 1px solid #5a5f6b;
+                    padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;
+                `;
+
+                const removeAllBtn = document.createElement("button");
+                removeAllBtn.innerText = "Clear All";
+                removeAllBtn.style.cssText = `
+                    background: #cc2222; color: white; border: 1px solid #aa1111;
+                    padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;
+                `;
+                removeAllBtn.onclick = () => {
+                    if (filesWidget) { filesWidget.value = ""; }
+                    this.reloadGallery();
+                    this.notifyOutputs();
+                };
+
+                topBar.appendChild(uploadBtn);
+                topBar.appendChild(removeAllBtn);
+                container.appendChild(topBar);
+
+                // Grid Container
+                const grid = document.createElement("div");
+                grid.style.cssText = `
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+                    grid-auto-rows: 75px;
+                    gap: 8px;
+                    width: 100%;
+                `;
+                container.appendChild(grid);
+                this.galleryGrid = grid;
+
+                const fileInput = document.createElement("input");
+                fileInput.type = "file";
+                fileInput.multiple = true;
+                fileInput.accept = "image/jpeg,image/png,image/webp";
+                fileInput.style.display = "none";
+                container.appendChild(fileInput);
+
+                uploadBtn.onclick = () => fileInput.click();
+
+                fileInput.onchange = async (e) => {
+                    const files = e.target.files;
+                    if (!files.length) return;
+                    
+                    let uploadedNames = [];
+                    for (let file of files) {
+                        const body = new FormData();
+                        body.append("image", file);
+                        const resp = await api.fetchApi("/upload/image", { method: "POST", body });
+                        const data = await resp.json();
+                        uploadedNames.push(data.name);
+                    }
+                    
+                    if (filesWidget) {
+                        const current = (filesWidget.value || "").trim();
+                        const allPaths = current ? current.split(',').concat(uploadedNames) : uploadedNames;
+                        filesWidget.value = allPaths.join(",");
+                    }
+                    
+                    this.reloadGallery();
+                    this.notifyOutputs();
+                };
+
+                // Add DOM widget
+                const galleryWidget = this.addDOMWidget("Gallery", "html_gallery", container, { serialize: false });
+                galleryWidget.computeSize = () => [0, 0];
                 
-                // Add "Upload Images" button
-                this.addWidget("button", "Upload Images", null, () => {
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.multiple = true;
-                    input.accept = "image/jpeg,image/png,image/webp";
-                    input.onchange = async (e) => {
-                        const files = e.target.files;
-                        if (!files.length) return;
-                        
-                        let uploadedNames = [];
-                        for (let file of files) {
-                            const body = new FormData();
-                            body.append("image", file);
-                            const resp = await api.fetchApi("/upload/image", {
-                                method: "POST",
-                                body: body,
-                            });
-                            const data = await resp.json();
-                            uploadedNames.push(data.name);
-                        }
-                        
-                        // Set the hidden widget
-                        if (filesWidget) {
-                            filesWidget.value = uploadedNames.join(",");
-                        }
-                        
-                        this.reloadCanvasImages();
-                        this.notifyOutputs();
-                    };
-                    input.click();
+                // Track layout changes
+                const resizeObserver = new ResizeObserver(() => {
+                    const minNodeHeight = (this.computeSize? this.computeSize()[1] : 100) + container.offsetHeight + 15;
+                    this.size[1] = Math.max(this.size[1], minNodeHeight);
                 });
-                
-                // Load initial images if the node was just loaded from a workflow
-                setTimeout(() => {
-                    this.reloadCanvasImages();
-                    // Don't violently notify outputs on load, 
-                    // allow graph to build first
-                    setTimeout(() => { this.notifyOutputs() }, 500);
-                }, 100);
-                
-                return r;
-            };
+                resizeObserver.observe(container);
 
-            nodeType.prototype.reloadCanvasImages = function() {
-                const filesWidget = this.widgets?.find(w => w.name === "uploaded_images");
-                if (!filesWidget || (!filesWidget.value && filesWidget.value !== "")) return;
-                
-                this.imgs = [];
-                const names = filesWidget.value.split(",").filter(n => n.trim() !== "");
-                for(let name of names) {
-                    const img = new Image();
-                    img.src = `/view?filename=${encodeURIComponent(name)}&type=input`;
-                    this.imgs.push(img);
-                }
-                this.setDirtyCanvas(true);
-            };
+                this.reloadGallery = function() {
+                    this.galleryGrid.innerHTML = "";
+                    if (!filesWidget || (!filesWidget.value && filesWidget.value !== "")) return;
+                    
+                    const names = filesWidget.value.split(",").filter(n => n.trim() !== "");
+                    
+                    names.forEach((name, idx) => {
+                        const item = document.createElement("div");
+                        item.style.cssText = `
+                            position: relative; width: 100%; height: 100%;
+                            background: #000; border-radius: 4px; border: 1px solid #444;
+                            overflow: hidden; display: flex; align-items: center; justify-content: center;
+                        `;
 
-            nodeType.prototype.notifyOutputs = function() {
-                if (this.outputs && this.outputs.length && this.outputs[0].links) {
-                    for (let linkId of this.outputs[0].links) {
-                        const link = app.graph.links[linkId];
-                        if (link) {
-                            const targetNode = app.graph.getNodeById(link.target_id);
-                            if (targetNode && targetNode.type === "ImageRoleSelector") {
-                                targetNode.updateWidgetsFromParent();
+                        const img = document.createElement("img");
+                        img.src = `/api/view?filename=${encodeURIComponent(name)}&type=input`;
+                        img.style.cssText = "max-width: 100%; max-height: 100%; object-fit: contain;";
+                        
+                        // Badge
+                        const badge = document.createElement("div");
+                        badge.style.cssText = `
+                            position: absolute; bottom: 0; left: 0;
+                            background: rgba(0,0,0,0.7); color: white;
+                            padding: 2px 5px; font-size: 10px;
+                            border-top-right-radius: 4px; z-index: 5;
+                        `;
+                        badge.innerText = `${idx + 1}`;
+                        
+                        // Delete Button
+                        const del = document.createElement("div");
+                        del.style.cssText = `
+                            position: absolute; top: 0; right: 0;
+                            background: #c22; color: white; width: 16px; height: 16px;
+                            display: flex; align-items: center; justify-content: center;
+                            font-size: 10px; cursor: pointer; z-index: 10;
+                            border-bottom-left-radius: 4px; transition: background 0.2s;
+                        `;
+                        del.innerHTML = "✕";
+                        del.onclick = (e) => {
+                            e.stopPropagation();
+                            const newNames = names.filter((_, i) => i !== idx);
+                            if (filesWidget) { filesWidget.value = newNames.join(","); }
+                            this.reloadGallery();
+                            this.notifyOutputs();
+                        };
+                        del.onmouseenter = () => { del.style.background = "#f33"; };
+                        del.onmouseleave = () => { del.style.background = "#c22"; };
+
+                        item.appendChild(img);
+                        item.appendChild(badge);
+                        item.appendChild(del);
+                        this.galleryGrid.appendChild(item);
+                    });
+
+                    // Trigger resize logic slightly later
+                    setTimeout(() => {
+                        const minH = (this.computeSize? this.computeSize()[1] : 100) + this.galleryGrid.parentElement.offsetHeight + 15;
+                        this.setSize([Math.max(this.size[0], 240), Math.max(this.size[1], minH)]);
+                        app.graph.setDirtyCanvas(true, true);
+                    }, 50);
+                };
+
+                this.notifyOutputs = function() {
+                    if (this.outputs && this.outputs.length && this.outputs[0].links) {
+                        for (let linkId of this.outputs[0].links) {
+                            const link = app.graph.links[linkId];
+                            if (link && app.graph) {
+                                const targetNode = app.graph.getNodeById(link.target_id);
+                                if (targetNode && targetNode.type === "ImageRoleSelector") {
+                                    targetNode.updateWidgetsFromParent();
+                                }
                             }
                         }
                     }
-                }
-            };
+                };
 
-            const onDrawBackground = nodeType.prototype.onDrawBackground;
-            nodeType.prototype.onDrawBackground = function (ctx) {
-                if (onDrawBackground) onDrawBackground.apply(this, arguments);
-                if (!this.imgs || !this.imgs.length) return;
+                // Clear previous custom draw
+                nodeType.prototype.onDrawBackground = function() {};
                 
-                const padding = 10;
-                const top_offset = 50; 
-                const cols = 2;
-                const rows = Math.ceil(this.imgs.length / cols);
-                const w = (this.size[0] - padding * (cols + 1)) / cols;
-                const h = 80;
-                
-                let i = 0;
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        if (i >= this.imgs.length) break;
-                        const img = this.imgs[i];
-                        if (img.complete) {
-                            const x = padding + c * (w + padding);
-                            const y = top_offset + r * (h + padding);
-                            ctx.drawImage(img, x, y, w, h);
-                            
-                            // Draw label
-                            ctx.fillStyle = "rgba(0,0,0,0.6)";
-                            ctx.fillRect(x, y, w, 20);
-                            ctx.fillStyle = "white";
-                            ctx.font = "12px Arial";
-                            ctx.fillText(`Img ${i+1}`, x+5, y+14);
-                        }
-                        i++;
-                    }
+                setTimeout(() => {
+                    this.reloadGallery();
+                    this.notifyOutputs();
+                }, 200);
+
+                if (filesWidget) {
+                    const oldCallback = filesWidget.callback;
+                    filesWidget.callback = (v) => {
+                        if (oldCallback) oldCallback.apply(filesWidget, [v]);
+                        if (this.reloadGallery) this.reloadGallery();
+                    };
                 }
-                
-                // Adjust node size to fit images
-                const expectedHeight = top_offset + rows * (h + padding) + 20;
-                if (this.size[1] < expectedHeight) {
-                    this.size[1] = expectedHeight;
-                }
+
+                return r;
             };
         }
         
@@ -139,13 +219,11 @@ app.registerExtension({
             const onConnectionsChange = nodeType.prototype.onConnectionsChange;
             nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info) {
                 if (onConnectionsChange) onConnectionsChange.apply(this, arguments);
-                
-                // If INPUT connection changes (we connect or disconnect from MultiImageLoader)
                 if (type === LiteGraph.INPUT && index === 0) {
                     if (connected) {
                         this.updateWidgetsFromParent();
                     } else {
-                        this.syncRoleWidgets(0); // cleared
+                        this.syncRoleWidgets(0);
                     }
                 }
             };
@@ -159,12 +237,10 @@ app.registerExtension({
                          imgCount = filesWidget.value.split(",").filter(v => v.trim() !== "").length;
                     }
                 }
-                
                 this.syncRoleWidgets(imgCount);
             };
 
             nodeType.prototype.syncRoleWidgets = function(count) {
-                // Clear existing dynamic widgets for roles
                 const keepWidgets = [];
                 for(let w of this.widgets || []) {
                     if (!w.name.startsWith("role_img_")) {
@@ -173,27 +249,21 @@ app.registerExtension({
                 }
                 this.widgets = keepWidgets;
                 
-                // Standard roles you requested
                 const roles = ["None", "Character Reference", "Background", "Object", "Additional Character 1", "Additional Character 2"];
                 
-                // We add exactly one widget per image
                 for(let i=0; i<count; i++) {
                     const wName = `role_img_${i+1}`;
-                    // Default behavior: 1st image = Character Reference. The rest are None.
                     const defaultValue = (i === 0) ? "Character Reference" : "None";
-                    
                     this.addWidget("combo", wName, defaultValue, (v) => {
                         this.updateOutputs();
                     }, { values: roles });
                 }
                 
-                // Set the correct height
                 this.size[1] = this.computeSize()[1];
                 this.updateOutputs();
             };
 
             nodeType.prototype.updateOutputs = function() {
-                // Determine what active roles we have across all widgets
                 const activeRoles = [];
                 for(let w of this.widgets || []) {
                     if (w.name.startsWith("role_img_") && w.value !== "None") {
@@ -201,27 +271,22 @@ app.registerExtension({
                     }
                 }
                 
-                // Set the hidden output_roles widget so Python knows what we want
                 let hiddenWidget = this.widgets.find(w => w.name === "output_roles");
                 if (hiddenWidget) {
                     hiddenWidget.value = activeRoles.join(",");
                 }
                 
-                // Remove outputs that are no longer active
                 for(let i=(this.outputs?this.outputs.length-1:-1); i>=0; i--) {
                     if (!activeRoles.includes(this.outputs[i].name)) {
                         this.removeOutput(i);
                     }
                 }
                 
-                // Add new outputs in order
                 for(let role of activeRoles) {
                     if (!this.outputs || !this.outputs.find(o => o.name === role)) {
                         this.addOutput(role, "IMAGE");
                     }
                 }
-                
-                // Update node size immediately so wires don't detach visually
                 this.size[1] = this.computeSize()[1];
             }
         }
