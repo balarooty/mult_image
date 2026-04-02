@@ -46,34 +46,23 @@ class ImageRoleSelector:
         return {
             "required": {
                 "images": ("IMAGE_LIST",),
-            },
-            "hidden": {
-                "output_roles": ("STRING", {"default": ""}),
             }
         }
 
-    RETURN_TYPES = tuple()
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE")
+    RETURN_NAMES = ("Main Character", "Object", "Background", "2nd Character")
     FUNCTION = "select_roles"
     CATEGORY = "Custom/MultiImage"
 
-    def select_roles(self, images, output_roles="", **kwargs):
-        outputs = []
-        if not output_roles: return tuple()
-        roles = output_roles.split(",")
-        
-        for role in roles:
-            assigned_img = None
-            for i, img in enumerate(images):
-                w_name = f"role_img_{i+1}"
-                if kwargs.get(w_name) == role:
-                    assigned_img = img
-                    break
-            
-            if assigned_img is None:
-                if len(images) > 0:
-                    assigned_img = images[0]
-                else:
-                    assigned_img = torch.zeros((1, 512, 512, 3))
-            outputs.append(assigned_img)
-            
-        return tuple(outputs)
+    def select_roles(self, images):
+        def get_img(idx):
+            if len(images) > idx:
+                return images[idx]
+            elif len(images) > 0:
+                # Fallback to first image if not enough provided to prevent runtime missing tensor errors
+                return images[0]
+            else:
+                # Extreme fallback if no images uploaded
+                return torch.zeros((1, 512, 512, 3))
+                
+        return (get_img(0), get_img(1), get_img(2), get_img(3))

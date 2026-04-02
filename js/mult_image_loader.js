@@ -181,17 +181,7 @@ app.registerExtension({
                 };
 
                 this.notifyOutputs = function() {
-                    if (this.outputs && this.outputs.length && this.outputs[0].links) {
-                        for (let linkId of this.outputs[0].links) {
-                            const link = app.graph.links[linkId];
-                            if (link && app.graph) {
-                                const targetNode = app.graph.getNodeById(link.target_id);
-                                if (targetNode && targetNode.type === "ImageRoleSelector") {
-                                    targetNode.updateWidgetsFromParent();
-                                }
-                            }
-                        }
-                    }
+                    // No dynamic output management needed for static Python node
                 };
 
                 // Clear previous custom draw
@@ -214,81 +204,6 @@ app.registerExtension({
             };
         }
         
-        // --- IMAGE ROLE SELECTOR (NODE 2) ---
-        if (nodeData.name === "ImageRoleSelector") {
-            const onConnectionsChange = nodeType.prototype.onConnectionsChange;
-            nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info) {
-                if (onConnectionsChange) onConnectionsChange.apply(this, arguments);
-                if (type === LiteGraph.INPUT && index === 0) {
-                    if (connected) {
-                        this.updateWidgetsFromParent();
-                    } else {
-                        this.syncRoleWidgets(0);
-                    }
-                }
-            };
-            
-            nodeType.prototype.updateWidgetsFromParent = function() {
-                const parentNode = this.getInputNode(0);
-                let imgCount = 0;
-                if (parentNode && parentNode.widgets) {
-                    const filesWidget = parentNode.widgets.find(w => w.name === "uploaded_images");
-                    if (filesWidget && filesWidget.value) {
-                         imgCount = filesWidget.value.split(",").filter(v => v.trim() !== "").length;
-                    }
-                }
-                this.syncRoleWidgets(imgCount);
-            };
-
-            nodeType.prototype.syncRoleWidgets = function(count) {
-                const keepWidgets = [];
-                for(let w of this.widgets || []) {
-                    if (!w.name.startsWith("role_img_")) {
-                        keepWidgets.push(w);
-                    }
-                }
-                this.widgets = keepWidgets;
-                
-                const roles = ["None", "Character Reference", "Background", "Object", "Additional Character 1", "Additional Character 2"];
-                
-                for(let i=0; i<count; i++) {
-                    const wName = `role_img_${i+1}`;
-                    const defaultValue = (i === 0) ? "Character Reference" : "None";
-                    this.addWidget("combo", wName, defaultValue, (v) => {
-                        this.updateOutputs();
-                    }, { values: roles });
-                }
-                
-                this.size[1] = this.computeSize()[1];
-                this.updateOutputs();
-            };
-
-            nodeType.prototype.updateOutputs = function() {
-                const activeRoles = [];
-                for(let w of this.widgets || []) {
-                    if (w.name.startsWith("role_img_") && w.value !== "None") {
-                         if (!activeRoles.includes(w.value)) activeRoles.push(w.value);
-                    }
-                }
-                
-                let hiddenWidget = this.widgets.find(w => w.name === "output_roles");
-                if (hiddenWidget) {
-                    hiddenWidget.value = activeRoles.join(",");
-                }
-                
-                for(let i=(this.outputs?this.outputs.length-1:-1); i>=0; i--) {
-                    if (!activeRoles.includes(this.outputs[i].name)) {
-                        this.removeOutput(i);
-                    }
-                }
-                
-                for(let role of activeRoles) {
-                    if (!this.outputs || !this.outputs.find(o => o.name === role)) {
-                        this.addOutput(role, "IMAGE");
-                    }
-                }
-                this.size[1] = this.computeSize()[1];
-            }
-        }
+        // --- IMAGE ROLE SELECTOR DELETED (NOW STATIC IN PYTHON) ---
     }
 });
