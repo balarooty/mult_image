@@ -71,11 +71,11 @@
   },
   "78": {
     "inputs": {
-      "image": "image_qwen_image_edit_2509_input_image.png"
+      "uploaded_images": ""
     },
-    "class_type": "LoadImage",
+    "class_type": "MultiImageLoader",
     "_meta": {
-      "title": "Load Reference Character Image"
+      "title": "Multi Image Loader 🖼️"
     }
   },
   "435": {
