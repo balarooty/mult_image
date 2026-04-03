@@ -1,13 +1,11 @@
-from .mult_image_nodes import MultiImageLoader, ImageRoleSelector
+from .mult_image_nodes import MultiImageLoader
 
 NODE_CLASS_MAPPINGS = {
     "MultiImageLoader": MultiImageLoader,
-    "ImageRoleSelector": ImageRoleSelector
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "MultiImageLoader": "Multi Image Loader 🖼️",
-    "ImageRoleSelector": "Image Role Selector 🎯"
 }
 
 WEB_DIRECTORY = "./js"
