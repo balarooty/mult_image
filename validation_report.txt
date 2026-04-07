@@ -1,0 +1,49 @@
+
+============================================================
+  WORKFLOW VALIDATION REPORT
+============================================================
+
+📊 SUMMARY:
+  Total nodes: 99
+  Functional nodes: 90, Note nodes: 9
+  MultiImageLoader (78): class=MultiImageLoader, inputs=['uploaded_images', 'prompt_mode']
+  ✅ Scale Main Character (700): correctly wired to MultiImageLoader port 0
+  ✅ Scale Background (701): correctly wired to MultiImageLoader port 1
+  ✅ Scale Objects (702): correctly wired to MultiImageLoader port 2
+  ✅ Scene 1 Positive: image1 → character (700) ✓
+  ✅ Scene 1 Positive: image2 → background (701) ✓
+  ✅ Scene 1 Positive: image3 → objects (702) ✓
+  ✅ Scene 2 Positive: image1 → character (700) ✓
+  ✅ Scene 2 Positive: image2 → prev scene (501) ✓
+  ✅ Scene 2 Positive: image3 → objects (702) ✓
+  ✅ Scene 3 Positive: image1 → character (700) ✓
+  ✅ Scene 3 Positive: image2 → prev scene (511) ✓
+  ✅ Scene 3 Positive: image3 → objects (702) ✓
+  ✅ Scene 4 Positive: image1 → character (700) ✓
+  ✅ Scene 4 Positive: image2 → prev scene (521) ✓
+  ✅ Scene 4 Positive: image3 → objects (702) ✓
+  ✅ Scene 5 Positive: image1 → character (700) ✓
+  ✅ Scene 5 Positive: image2 → prev scene (531) ✓
+  ✅ Scene 5 Positive: image3 → objects (702) ✓
+  ✅ Scene 6 Positive: image1 → character (700) ✓
+  ✅ Scene 6 Positive: image2 → prev scene (541) ✓
+  ✅ Scene 6 Positive: image3 → objects (702) ✓
+  ✅ Scene 7 Positive: image1 → character (700) ✓
+  ✅ Scene 7 Positive: image2 → prev scene (551) ✓
+  ✅ Scene 7 Positive: image3 → objects (702) ✓
+  ✅ Scene 8 Positive: image1 → character (700) ✓
+  ✅ Scene 8 Positive: image2 → prev scene (561) ✓
+  ✅ Scene 8 Positive: image3 → objects (702) ✓
+  ✅ Scene 9 Positive: image1 → character (700) ✓
+  ✅ Scene 9 Positive: image2 → prev scene (571) ✓
+  ✅ Scene 9 Positive: image3 → objects (702) ✓
+  ✅ Scene 10 Positive: image1 → character (700) ✓
+  ✅ Scene 10 Positive: image2 → prev scene (581) ✓
+  ✅ Scene 10 Positive: image3 → objects (702) ✓
+  ✅ Model chain: LoRA → UNETLoader ✓
+  ✅ Model chain: AuraFlow → LoRA ✓
+  ✅ Model chain: CFGNorm → AuraFlow ✓
+
+✅ NO ERRORS FOUND — All connections verified!
+
+============================================================
